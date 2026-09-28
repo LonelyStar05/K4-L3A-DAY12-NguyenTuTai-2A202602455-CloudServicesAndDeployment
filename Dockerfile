@@ -21,14 +21,34 @@
 #            docker images day12-agent:prod     # xem dung lượng
 # ═══════════════════════════════════════════════════════════════════
 
-FROM python:3.11
+# Stage 1: cài dependency (được phép "nặng", không vào image cuối)
+FROM python:3.11-slim AS builder
 
 WORKDIR /app
 
-COPY . .
+COPY requirements.txt .
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
-RUN pip install -r requirements.txt
+# Stage 2: runtime gọn, không mang theo pip cache/compiler
+FROM python:3.11-slim AS runtime
+
+WORKDIR /app
+
+# Tạo user thường và chuyển sang — không chạy bằng root
+RUN useradd --create-home --uid 10001 appuser
+
+# Copy kết quả cài dependency từ builder
+COPY --from=builder /install /usr/local
+
+# Copy source SAU khi cài dependency để tận dụng Docker layer cache
+COPY app ./app
+COPY utils ./utils
+
+USER appuser
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health').read()" || exit 1
+
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

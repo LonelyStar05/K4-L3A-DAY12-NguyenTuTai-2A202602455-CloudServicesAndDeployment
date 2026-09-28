@@ -6,7 +6,7 @@
 > Cách trả lời: thay dòng trả lời mẫu bằng câu trả lời của bạn.
 > `grade.py` đếm số câu đã trả lời (15 điểm cho 10 câu).
 >
-> Họ và tên: ..........................  Mã học viên: ..........................
+> Họ và tên: Nguyễn Tú Tài  Mã học viên: 2A202602455
 
 ---
 
@@ -31,13 +31,14 @@ Chạy service và gọi `/ask` vài lần. Dán một dòng log JSON bạn thu 
 nêu **hai** việc bạn làm được với dòng log đó mà `print("đã trả lời xong")`
 không làm được.
 
-> Ví dụ một dòng: `{"event": "ask_completed", "level": "info",
-> "timestamp": "2026-09-28T03:15:00+00:00", "user_id": "sv01",
-> "tokens_in": 12, "tokens_out": 45, "cost_usd": 0.0000288}`. Hai việc làm
-> được mà `print("đã trả lời xong")` không làm được: (1) lọc/đếm theo cấu trúc,
-> ví dụ query log để biết user nào tiêu nhiều `cost_usd` nhất và cảnh báo khi
-> tổng sắp chạm ngân sách; (2) tạo biểu đồ/alert theo từng trường như
-> `event=ask_completed` chứ không phải parse chuỗi văn bản tự do.
+> Tôi chạy service, gọi `/ask` hai lần và thấy trong log một dòng thật như sau:
+> `{"event": "ask_completed", "level": "info", "timestamp":
+> "2026-09-28T09:29:00.884175+00:00", "user_id": "sv-demo", "tokens_in":
+> 3, "tokens_out": 41, "cost_usd": 2.505e-05}`. Hai việc làm được mà
+> `print("đã trả lời xong")` không làm được: (1) lọc/đếm theo cấu trúc — ví dụ
+> query `event=ask_completed` rồi `SUM(cost_usd)` theo `user_id` để biết ai tiêu
+> nhiều nhất và cảnh báo khi sắp chạm ngân sách; (2) vẽ biểu đồ/đặt alert theo
+> trường số như `tokens_in`, `cost_usd` chứ không phải parse chuỗi văn bản tự do.
 
 ---
 
@@ -163,8 +164,12 @@ Ghi lại **một** lỗi bạn gặp khi deploy lên cloud (build fail, health 
 timeout, sai REDIS_URL, app không đọc `$PORT`...): thông báo lỗi là gì, bạn
 tìm ra nguyên nhân bằng cách nào, và sửa ra sao?
 
-> *(Điền lỗi bạn thực sự gặp khi deploy.)* Ví dụ điển hình: health check
-> timeout vì lúc đầu container bind `127.0.0.1` và cố định cổng 8000 trong khi
-> platform gán `$PORT`. Tôi phát hiện bằng cách xem log build/deploy trên
-> dashboard (service start rồi probe không tới được), rồi sửa CMD thành
-> `--host 0.0.0.0 --port ${PORT:-8000}`.
+> Lỗi tôi gặp thật khi deploy lên Railway: `/health` trả 200 nhưng `/ready` và
+> `/ask` đều trả `500 Internal Server Error`. Tôi thử gọi từ máy thấy
+> `/ask` không key cũng 500 thay vì 401, nên biết lỗi nằm ở lớp cấu hình chứ
+> không phải logic. Xem log Railway thấy `Exception in ASGI application`; khi tôi
+> tái hiện trên máy không có `AGENT_API_KEY` thì gặp `ValidationError:
+> agent_api_key Field required`. Nguyên nhân là `AGENT_API_KEY` chưa được đặt
+> trong tab Variables của service Railway (mà .env không được commit nên không
+> tồn tại trong container). Tôi sửa bằng cách thêm `AGENT_API_KEY`, `REDIS_URL`
+> vào Service Variables rồi redeploy — sau đó `/ask` bắt đầu trả 401/200 đúng.
